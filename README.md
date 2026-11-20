@@ -10,6 +10,9 @@ Lo importante: casi todos los hallazgos son **explotables desde el navegador**,
 así que cada sesión de Devin puede mostrar el exploit y el fix en la UI en vez
 de argumentarlos por escrito.
 
+Arquitectura del código (componentes, rutas, flujo de CI) y diagrama:
+[`docs/architecture.md`](docs/architecture.md).
+
 ## Levantar la app
 
 ```

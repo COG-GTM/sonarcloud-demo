@@ -1,0 +1,84 @@
+// Architecture of the Contract API (SonarCloud remediation demo).
+// Edit this file, then run docs/diagrams/render.sh to refresh the PNG/SVG.
+digraph architecture {
+  graph [rankdir=TB, fontname="DejaVu Sans", fontsize=18, nodesep=0.45, ranksep=0.6,
+         compound=true, newrank=true, pad=0.3, label="Contract API (sonarcloud-demo): runtime, unwired code and CI remediation loop",
+         labelloc=t];
+  node  [shape=box, style="rounded,filled", fillcolor=white, fontname="DejaVu Sans", fontsize=16, color="#334155"];
+  edge  [fontname="DejaVu Sans", fontsize=13, color="#475569"];
+
+  browser [label="Browser\n(demo presenter or Devin session)", shape=oval, fillcolor="#e0f2fe"];
+
+  subgraph cluster_process {
+    label="Go process: go run ./cmd/api  (ADDR, default :8080; run from repo root)";
+    style="rounded,filled"; fillcolor="#f1f5f9"; color="#64748b";
+
+    main   [label="cmd/api/main.go\nstore.Open() + http.ListenAndServe"];
+    routes [label="internal/web  Server.Routes()  (http.ServeMux)\n/  Search    |  /contracts/{id}  Detail    |  /contracts/attachment  Attachment\n/contracts/export  Export    |  /summary  Summary (regex ^[A-Z]{2}-[0-9]{2}$)", fillcolor="#fef9c3"];
+    tmpl   [label="internal/web/templates.go\nhtml/template layout + pages"];
+    repo   [label="internal/contracts  repository.go\nFindByCustomer (Sprintf)  |  GetByID (?)\nCountByRegion (?, unused)  |  CountByValidatedRegion (Sprintf)"];
+    store  [label="internal/store  store.Open()\nmodernc.org/sqlite, in-memory\ntables: contracts (4 seed rows), api_keys (1 row)", shape=cylinder, fillcolor="#dcfce7"];
+
+    { rank=same; tmpl; repo; }
+  }
+
+  subgraph cluster_disk {
+    label="Repo working tree (relative paths)";
+    style="rounded,dashed"; color="#64748b";
+    attach [label="data/attachments/*.txt\n(data/private/ beside it)", shape=folder, fillcolor="#f8fafc"];
+    cli    [label="scripts/report-cli.sh\n(stand-in reporting CLI, echoes text)", shape=component, fillcolor="#f8fafc"];
+    { rank=same; attach; cli; }
+  }
+
+  subgraph cluster_unwired {
+    label="Scanned by Sonar but not imported by cmd/api";
+    style="rounded,dashed"; color="#94a3b8"; fontcolor="#475569";
+    auth   [label="internal/auth\nhardcoded keys, MD5 password hash", fillcolor="#f8fafc", color="#94a3b8"];
+    cache  [label="internal/cache\nMD5 cache key", fillcolor="#f8fafc", color="#94a3b8"];
+    fix    [label="internal/fixtures\ntest-only constants", fillcolor="#f8fafc", color="#94a3b8"];
+    gis    [label="internal/integrations\nGIS HTTP client (InsecureSkipVerify)", fillcolor="#f8fafc", color="#94a3b8"];
+    infra  [label="infra/main.tf  (AWS eu-west-1)\nS3 bucket public-read | SG 0.0.0.0/0 | RDS Postgres", fillcolor="#f8fafc", color="#94a3b8"];
+    { rank=same; auth; cache; fix; }
+    { rank=same; gis; infra; }
+    auth -> gis [style=invis]; cache -> infra [style=invis];
+  }
+
+  subgraph cluster_ci {
+    label="GitHub Actions remediation loop";
+    style="rounded,filled"; fillcolor="#fdf4ff"; color="#a21caf";
+    pr     [label="PR / push to main", shape=oval, fillcolor="#fae8ff"];
+    sonarwf[label=".github/workflows/sonarcloud.yml\ngo build, go test, scan, quality gate"];
+    remwf  [label=".github/workflows/devin-remediate.yml\non SonarCloud failure or manual dispatch"];
+    spawn  [label="scripts/spawn_devin_sessions.py\none session per finding (MAX_SESSIONS=10)\nprompt = playbooks/sonar-triage-remediation.md"];
+    { rank=same; sonarwf; remwf; }
+  }
+
+  sonar  [label="SonarCloud\n(org cog-gtm)", shape=box3d, fillcolor="#fee2e2"];
+  devin  [label="Devin API\nPOST /v1/sessions", shape=box3d, fillcolor="#ede9fe"];
+  branch [label="PRs to sonar/remediation", shape=note, fillcolor="#fae8ff"];
+  gisext [label="GIS backend\n(external, never called)", shape=box3d, fillcolor="#f8fafc", color="#94a3b8", style="filled,dashed"];
+
+  browser -> routes [label="HTTP GET"];
+  main -> store [label="Open()"];
+  main -> routes [label="ListenAndServe"];
+  routes -> tmpl [label="render"];
+  routes -> repo [label="queries"];
+  repo -> store [label="database/sql"];
+  routes -> attach [label="Attachment: ReadFile(Join(root, name))"];
+  routes -> cli [label="Export: sh -c"];
+
+  gis -> gisext [style=dashed, color="#94a3b8"];
+
+  pr -> sonarwf;
+  sonarwf -> sonar [label="scan cmd, internal, infra"];
+  sonarwf -> remwf [label="workflow_run\n(failure)"];
+  remwf -> spawn;
+  spawn -> sonar [label="issues + hotspots API"];
+  spawn -> devin;
+  devin -> browser [label="each session boots the app\nand tries the exploit", style=dashed, constraint=false];
+  devin -> branch [label="fix PRs (real findings)"];
+
+  // Layout only: stack runtime, CI loop and unwired code vertically.
+  store -> pr [style=invis]; cli -> pr [style=invis];
+  branch -> cache [style=invis]; sonar -> fix [style=invis];
+}
