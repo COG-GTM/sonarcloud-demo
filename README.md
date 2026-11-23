@@ -14,7 +14,8 @@ de argumentarlos por escrito.
 
 Requisito: Go 1.22 o superior (la versión que usa CI; `go.mod` declara 1.18).
 La primera ejecución descarga las dependencias de `go.sum`, así que necesita
-acceso a `proxy.golang.org`.
+acceso a un proxy de módulos (`proxy.golang.org` por defecto, o el que indique
+`GOPROXY`). La exportación a PDF invoca `sh`, que debe estar en el `PATH`.
 
 Desde la raíz del repo (los adjuntos de `data/attachments` y
 `scripts/report-cli.sh` se resuelven relativos al directorio de trabajo):
@@ -25,7 +26,9 @@ go run ./cmd/api      # http://localhost:8080
 
 Sin base de datos externa ni configuración: los contratos se siembran en memoria
 al arrancar. Si el puerto 8080 está ocupado, usar otro con `ADDR`, por ejemplo
-`ADDR=:8099 go run ./cmd/api`.
+`ADDR=127.0.0.1:8099 go run ./cmd/api`. Sin host (`:8080`, el valor por defecto)
+escucha en todas las interfaces; como la app tiene vulnerabilidades a propósito,
+conviene fijar `127.0.0.1` fuera de una máquina aislada.
 
 | Página | Ruta |
 | --- | --- |
