@@ -12,12 +12,20 @@ de argumentarlos por escrito.
 
 ## Levantar la app
 
+Requisito: Go 1.22 o superior (la versión que usa CI; `go.mod` declara 1.18).
+La primera ejecución descarga las dependencias de `go.sum`, así que necesita
+acceso a `proxy.golang.org`.
+
+Desde la raíz del repo (los adjuntos de `data/attachments` y
+`scripts/report-cli.sh` se resuelven relativos al directorio de trabajo):
+
 ```
 go run ./cmd/api      # http://localhost:8080
 ```
 
 Sin base de datos externa ni configuración: los contratos se siembran en memoria
-al arrancar.
+al arrancar. Si el puerto 8080 está ocupado, usar otro con `ADDR`, por ejemplo
+`ADDR=:8099 go run ./cmd/api`.
 
 | Página | Ruta |
 | --- | --- |
@@ -77,7 +85,8 @@ que mostrar el fan-out por hallazgo.
 
 1. Crear el proyecto en SonarCloud dentro de la org `cog-gtm`
    (`https://sonarcloud.io/organizations/cog-gtm/projects`), con project key
-   `cog-gtm_sonarcloud-demo`. Desactivar "Automatic Analysis" para que
+   `cog-gtm_sonarcloud-repsol-demo` (el que usan `sonar-project.properties` y
+   `.github/workflows/devin-remediate.yml`). Desactivar "Automatic Analysis" para que
    corra el scanner de CI.
 2. En el repo de GitHub, cargar los secrets `SONAR_TOKEN` (token de SonarCloud)
    y `DEVIN_API_KEY` (API key de la org de Devin dueña del repo).
